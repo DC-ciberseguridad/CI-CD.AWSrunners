@@ -1,11 +1,13 @@
 
-# Project Title
-
-🏗️ Laboratorio # 9: Sistema de Ejecución de Pipelines 100% Bajo Demanda y Serverless en AWS (Free Tier)
+# 🏗️ Laboratorio # 9: Sistema de Ejecución de Pipelines 100% Bajo Demanda y Serverless en AWS (Free Tier)
 
 Este repositorio contiene la infraestructura como código (IaC) para eliminar los servidores de CI/CD encendidos 24/7 y reemplazar la infraestructura fija por un sistema de ejecución de pipelines 100% bajo demanda, Serverless y adaptado a la Capa Gratuita de AWS.
 
-Crédito y Atribución: Proyecto inspirado originalmente en la guía de daveopssh/youtube - gha-runners. Modificado para operar íntegramente bajo la Capa Gratuita (Free Tier) de AWS en la región us-east-1 usando Terraform u OpenTofu.
+Crédito y Atribución: 
+
+[Proyecto inspirado originalmente en la guía de daveopssh/youtube - gha-runners.](https://github.com/daveopssh/youtube/tree/master/src/terraform/gha-runners)
+   
+Modificado para operar íntegramente bajo la Capa Gratuita (Free Tier) de AWS en la región us-east-1 usando Terraform u OpenTofu.
 
 ## 🎯 Finalidad Principal
 
@@ -30,31 +32,38 @@ Nota sobre SSM Parameter Store: Los Parámetros SSM cumplen un rol similar a los
 
 ## 🔄 Flujo de Trabajo
 
+```
 [ Git Push / Workflow ] 
          │ (Evento Event-Driven)
          ▼
+
 [ API Gateway / Lambda Webhook ]
          │
          ▼
+
 [ Lambda Scale-Up ] ──► (Lee credenciales de SSM)
          │
          ▼
+
 [ EC2 Auto Scaling (t3.micro) ] ──► Arranca runner efímero en us-east-1
          │
- [ Ejecuta Job de CI/CD ]
+
+[ Ejecuta Job de CI/CD ]
          │
          ▼
+
 [ Termina el Job ] ──► Destrucción automática de la instancia EC2
+```
 
-Disparo: Realizas un git push o ejecutas un workflow manual.
+1. Disparo: Realizas un git push o ejecutas un workflow manual.
 
-Evento (Webhook): GitHub notifica a API Gateway en AWS en tiempo real.
+2. Evento (Webhook): GitHub notifica a API Gateway en AWS en tiempo real.
 
-Procesamiento: Una Lambda evalúa el evento y calcula la capacidad necesaria.
+3. Procesamiento: Una Lambda evalúa el evento y calcula la capacidad necesaria.
 
-Creación: AWS Auto Scaling enciende una EC2 efímera (t3.micro) que se registra en tu repositorio.
+4. Creación: AWS Auto Scaling enciende una EC2 efímera (t3.micro) que se registra en tu repositorio.
 
-Ejecución y Limpieza: La EC2 procesa el job, reporta el resultado y se autodestruye.
+5. Ejecución y Limpieza: La EC2 procesa el job, reporta el resultado y se autodestruye.
 
 ## 🛠️ Lo que Aprenderás
 
@@ -65,7 +74,7 @@ Arquitecturas Serverless + Compute: Combinación de API Gateway, AWS Lambda y EC
 Aprovisionamiento Modular con Terraform/OpenTofu: Estrategia de bootstrap para cargar artefactos en S3 y secretos en SSM antes de aplicar el módulo principal de runners.
 
 ## 📁 Estructura del Proyecto
-
+```
 CI-CD.AWSrunners/
 ├── main.tf                 # Bucket S3, SSM Parameters y módulo github_runner
 ├── variables.tf            # Variables para la Capa Gratuita (t3.micro, on-demand, us-east-1)
@@ -74,7 +83,7 @@ CI-CD.AWSrunners/
 └── scripts/
     ├── publish-github-runner-lambdas.sh # Sube artefactos .zip al bucket S3
     └── put-ssm-parameter.sh             # Carga el App ID y la Clave Privada (.pem) a SSM
-
+```
 ## 📄 Desglose Detallado Archivo por Archivo
 
 📄 main.tf
@@ -147,33 +156,42 @@ Ve a Install App en el menú izquierdo e instálala en tu organización o reposi
 Paso 2 — Bootstrap de Infraestructura Inicial
 Inicializa Terraform e instala las dependencias:
 
+```
 Bash
 terraform init
 Aplica solo los recursos base (Bucket S3 y Parámetros SSM vacíos) para preparar el terreno sin fallos de dependencias:
-
+```
+```
 Bash
 terraform apply \
   -target=module.gha_runner_bucket \
   -target=aws_ssm_parameter.github_app_id \
   -target=aws_ssm_parameter.github_app_key_base64 \
   -target=aws_ssm_parameter.github_app_webhook_secret
+```
+
 Paso 3 — Publicar las Lambdas en S3
 Concede permisos de ejecución al script Bash y súbelas al bucket:
 
+```
 Bash
 chmod +x scripts/publish-github-runner-lambdas.sh
 ./scripts/publish-github-runner-lambdas.sh
 Paso 4 — Cargar Credenciales en SSM
 Registra el App ID y la clave privada .pem en SSM usando el script helper:
-
+```
+```
 Bash
 chmod +x scripts/put-ssm-parameter.sh
 ./scripts/put-ssm-parameter.sh <NÚMERO_DE_APP_ID> /ruta/a/tu-clave-privada.pem
 Paso 5 — Desplegar el Módulo Completo
 Aplica la totalidad de la infraestructura (API Gateway, Lambdas y Auto Scaling):
-
+```
+```
 Bash
 terraform apply
+```
+
 Al terminar, copia el valor del output webhook_endpoint.
 
 Paso 6 — Activar el Webhook en GitHub
@@ -187,6 +205,7 @@ En Webhook URL, pega la URL entregada por el output de Terraform (webhook_endpoi
 
 En Webhook Secret, pega el valor almacenado en SSM para la firma. Para consultarlo desde la terminal:
 
+```
 Bash
 aws ssm get-parameter \
   --name "/github-action-runners/demo/app/github_app_github_app_webhook_secret" \
@@ -194,11 +213,14 @@ aws ssm get-parameter \
   --query 'Parameter.Value' \
   --output text \
   --region us-east-1
+```
+
 Guarda los cambios.
 
 Paso 7 — Probar el Pipeline
 En tu repositorio de GitHub autorizado, crea un archivo de workflow .github/workflows/demo.yml:
 
+```
 YAML
 name: Demo AWS Ephemeral Runner
 on:
@@ -215,11 +237,16 @@ jobs:
         run: |
           echo "¡Hola desde la instancia EC2 efímera t3.micro en us-east-1!"
           uname -a
+```
+
 Dispara el pipeline manualmente desde la pestaña Actions de GitHub y observa en tu consola de AWS cómo se enciende una instancia EC2 t3.micro, procesa el trabajo y se autodestruye al terminar.
+
 
 ## 🧹 Limpieza de Recursos
 
 Para destruir toda la infraestructura creada y evitar cargos innecesarios en AWS, ejecuta:
 
+```
 Bash
 terraform destroy
+```
