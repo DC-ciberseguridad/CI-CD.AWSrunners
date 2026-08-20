@@ -19,7 +19,7 @@ Servidores EC2 dedicados (Self-Hosted estáticos): Instancias encendidas 24/7 co
 
 Solución: Construir una arquitectura Event-Driven (orientada a eventos). Cuando se genera un evento en GitHub Actions, AWS aprovisiona una instancia EC2 efímera, ejecuta el pipeline de CI/CD y la destruye automáticamente al finalizar el trabajo.
 
-🔑 Beneficios Clave
+## 🔑 Beneficios Clave
 Cero costo en reposo (Scale-to-Zero): Sin pipelines en ejecución, no hay instancias EC2 encendidas ni cobrando.
 
 Seguridad por Aislamiento (Runners Efímeros): Cada trabajo se ejecuta en una instancia EC2 completamente limpia que se destruye al terminar, previniendo fuga de credenciales o conflictos de dependencias.
@@ -28,7 +28,7 @@ Acceso Privado a la VPC: Al residir en tu red privada de AWS, el runner puede in
 
 Automatización con IaC: Todo el stack (API Gateway, Lambdas, SSM Parameters, Auto Scaling Groups y Roles IAM) se despliega mediante Terraform / OpenTofu.
 
-Nota sobre SSM Parameter Store: Los Parámetros SSM cumplen un rol similar a los Secrets/Variables de GitHub Actions: separar la configuración del código. La diferencia clave es que los valores de SSM residen dentro de AWS y son leídos en tiempo de ejecución por las funciones Lambda y los runners EC2.
+### Nota sobre SSM Parameter Store: Los Parámetros SSM cumplen un rol similar a los Secrets/Variables de GitHub Actions: separar la configuración del código. La diferencia clave es que los valores de SSM residen dentro de AWS y son leídos en tiempo de ejecución por las funciones Lambda y los runners EC2.
 
 ## 🔄 Flujo de Trabajo
 
@@ -86,7 +86,7 @@ CI-CD.AWSrunners/
 ```
 ## 📄 Desglose Detallado Archivo por Archivo
 
-📄 main.tf
+1. 📄 main.tf
 Contiene la arquitectura base y la llamada al módulo de runners:
 
 Data Sources: Detecta automáticamente la VPC por defecto y sus subredes en us-east-1.
@@ -97,7 +97,7 @@ Bucket S3 (module.gha_runner_bucket): Crea el bucket seguro con cifrado para gua
 
 Módulo Runner (module.github_runner): Despliega API Gateway, funciones Lambda y el Auto Scaling Group para lanzar instancias t3.micro efímeras con acceso SSM habilitado.
 
-📄 variables.tf
+2. 📄 variables.tf
 Parametriza el entorno con enfoque Free Tier:
 
 env_prefix (Default: "demo").
@@ -108,21 +108,21 @@ runner_instance_types (Default: ["t3.micro"]).
 
 github_runner_module_version (Default: "7.10.1").
 
-📄 outputs.tf
+3. 📄 outputs.tf
 Muestra el endpoint de API Gateway (webhook_endpoint), el bucket generado y los nombres de los parámetros SSM requeridos para conectar GitHub con AWS.
 
-📄 provider.tf
+4. 📄 provider.tf
 Fija la región de AWS en us-east-1 y define las versiones de los proveedores aws, tls y random.
 
-📄 scripts/publish-github-runner-lambdas.sh
+5. 📄 scripts/publish-github-runner-lambdas.sh
 Descarga los ejecutable .zip oficial del release v7.10.1 (webhook.zip, runners.zip y runner-binaries-syncer.zip) y los sube a S3.
 
-📄 scripts/put-ssm-parameter.sh
+6. 📄 scripts/put-ssm-parameter.sh
 Lee la clave privada .pem descargada de GitHub, la codifica en Base64 y escribe el App ID y la clave en SSM Parameter Store sin exponerlos en código plano.
 
 ## 🚀 Plan de Ejecución Paso a Paso
 
-Paso 1 — Crear la GitHub App
+### Paso 1 — Crear la GitHub App
 Ve a GitHub: Settings > Developer settings > GitHub Apps > New GitHub App.
 
 Configura los datos básicos:
@@ -135,25 +135,25 @@ Webhook URL: [https://example.com](https://example.com) (se actualizará en el P
 
 Asigna Permisos de Repositorio (Repository permissions):
 
-Actions: Read & write
+1. Actions: Read & write
 
-Administration: Read & write
+2. Administration: Read & write
 
-Checks: Read & write
+3. Checks: Read & write
 
-Metadata: Read-only
+4. Metadata: Read-only
 
-Suscríbete a eventos (Subscribe to events): Selecciona Workflow job.
+5. Suscríbete a eventos (Subscribe to events): Selecciona Workflow job.
 
-Haz clic en Create GitHub App.
+6. Haz clic en Create GitHub App.
 
-Guarda el App ID que aparece en pantalla.
+7. Guarda el App ID que aparece en pantalla.
 
-En la sección Private keys, haz clic en Generate a private key y guarda el archivo .pem en tu máquina.
+8. En la sección Private keys, haz clic en Generate a private key y guarda el archivo .pem en tu máquina.
 
-Ve a Install App en el menú izquierdo e instálala en tu organización o repositorio objetivo (ej. daveopssh/demo-tf-repo).
+9. Ve a Install App en el menú izquierdo e instálala en tu organización o repositorio objetivo (ej. daveopssh/demo-tf-repo).
 
-Paso 2 — Bootstrap de Infraestructura Inicial
+### Paso 2 — Bootstrap de Infraestructura Inicial
 Inicializa Terraform e instala las dependencias:
 
 ```
@@ -170,23 +170,26 @@ terraform apply \
   -target=aws_ssm_parameter.github_app_webhook_secret
 ```
 
-Paso 3 — Publicar las Lambdas en S3
+### Paso 3 — Publicar las Lambdas en S3
 Concede permisos de ejecución al script Bash y súbelas al bucket:
 
 ```
 Bash
 chmod +x scripts/publish-github-runner-lambdas.sh
 ./scripts/publish-github-runner-lambdas.sh
-Paso 4 — Cargar Credenciales en SSM
-Registra el App ID y la clave privada .pem en SSM usando el script helper:
 ```
+### Paso 4 — Cargar Credenciales en SSM
+Registra el App ID y la clave privada .pem en SSM usando el script helper:
+
 ```
 Bash
 chmod +x scripts/put-ssm-parameter.sh
 ./scripts/put-ssm-parameter.sh <NÚMERO_DE_APP_ID> /ruta/a/tu-clave-privada.pem
-Paso 5 — Desplegar el Módulo Completo
-Aplica la totalidad de la infraestructura (API Gateway, Lambdas y Auto Scaling):
 ```
+
+### Paso 5 — Desplegar el Módulo Completo
+Aplica la totalidad de la infraestructura (API Gateway, Lambdas y Auto Scaling):
+
 ```
 Bash
 terraform apply
@@ -194,7 +197,7 @@ terraform apply
 
 Al terminar, copia el valor del output webhook_endpoint.
 
-Paso 6 — Activar el Webhook en GitHub
+### Paso 6 — Activar el Webhook en GitHub
 Vuelve a tu GitHub App en GitHub.
 
 Ve a General > Webhook.
@@ -217,7 +220,7 @@ aws ssm get-parameter \
 
 Guarda los cambios.
 
-Paso 7 — Probar el Pipeline
+### Paso 7 — Probar el Pipeline
 En tu repositorio de GitHub autorizado, crea un archivo de workflow .github/workflows/demo.yml:
 
 ```
