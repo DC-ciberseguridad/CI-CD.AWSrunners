@@ -80,7 +80,7 @@ module "github_runner" {
   vpc_id     = data.aws_vpc.default.id
   subnet_ids = data.aws_subnets.default.ids
 
-  runner_architecture = "x86_64"
+  runner_architecture = "x64"
 
   github_app = {
     id             = aws_ssm_parameter.github_app_id.value

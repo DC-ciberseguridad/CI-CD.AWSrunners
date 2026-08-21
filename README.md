@@ -5,7 +5,10 @@ Este repositorio contiene la infraestructura como código (IaC) para eliminar lo
 
 Crédito y Atribución: 
 
-[Proyecto inspirado originalmente en la guía de daveopssh/youtube - gha-runners.](https://github.com/daveopssh/youtube/tree/master/src/terraform/gha-runners)
+•[Proyecto inspirado originalmente en la guía de daveopssh/youtube - gha-runners.](https://github.com/daveopssh/youtube/tree/master/src/terraform/gha-runners)
+
+•[Proyecto original.](https://github-aws-runners.github.io/terraform-aws-github-runner/)
+
    
 Modificado para operar íntegramente bajo la Capa Gratuita (Free Tier) de AWS en la región us-east-1 usando Terraform u OpenTofu.
 
@@ -30,30 +33,14 @@ Automatización con IaC: Todo el stack (API Gateway, Lambdas, SSM Parameters, Au
 
 ### Nota sobre SSM Parameter Store: Los Parámetros SSM cumplen un rol similar a los Secrets/Variables de GitHub Actions: separar la configuración del código. La diferencia clave es que los valores de SSM residen dentro de AWS y son leídos en tiempo de ejecución por las funciones Lambda y los runners EC2.
 
+## Requisitos
+    • Cuenta de AWS con permisos para EC2, Lambda, API Gateway, SSM, S3 e IAM
+    • AWS CLI configurada (en el demo se usa el profile personal)
+    • Cuenta de GitHub con permisos para crear una GitHub App
+    • OpenTofu o Terraform
+    • Una VPC con subnets donde puedan salir las EC2 (en el demo usan IP pública)
+
 ## 🔄 Flujo de Trabajo
-
-```
-[ Git Push / Workflow ] 
-         │ (Evento Event-Driven)
-         ▼
-
-[ API Gateway / Lambda Webhook ]
-         │
-         ▼
-
-[ Lambda Scale-Up ] ──► (Lee credenciales de SSM)
-         │
-         ▼
-
-[ EC2 Auto Scaling (t3.micro) ] ──► Arranca runner efímero en us-east-1
-         │
-
-[ Ejecuta Job de CI/CD ]
-         │
-         ▼
-
-[ Termina el Job ] ──► Destrucción automática de la instancia EC2
-```
 
 1. Disparo: Realizas un git push o ejecutas un workflow manual.
 
@@ -89,24 +76,8 @@ CI-CD.AWSrunners/
 1. 📄 main.tf
 Contiene la arquitectura base y la llamada al módulo de runners:
 
-Data Sources: Detecta automáticamente la VPC por defecto y sus subredes en us-east-1.
-
-Locales y Parámetros SSM: Configura las rutas SSM (/github-action-runners/demo/...) e ignora cambios en sus valores reales mediante lifecycle { ignore_changes = [value] }.
-
-Bucket S3 (module.gha_runner_bucket): Crea el bucket seguro con cifrado para guardar las Lambdas.
-
-Módulo Runner (module.github_runner): Despliega API Gateway, funciones Lambda y el Auto Scaling Group para lanzar instancias t3.micro efímeras con acceso SSM habilitado.
-
 2. 📄 variables.tf
 Parametriza el entorno con enfoque Free Tier:
-
-env_prefix (Default: "demo").
-
-instance_target_capacity_type (Default: "on-demand" para la capa gratuita).
-
-runner_instance_types (Default: ["t3.micro"]).
-
-github_runner_module_version (Default: "7.10.1").
 
 3. 📄 outputs.tf
 Muestra el endpoint de API Gateway (webhook_endpoint), el bucket generado y los nombres de los parámetros SSM requeridos para conectar GitHub con AWS.
@@ -143,13 +114,13 @@ Asigna Permisos de Repositorio (Repository permissions):
 
 4. Metadata: Read-only
 
-5. Suscríbete a eventos (Subscribe to events): Selecciona Workflow job.
+5. Subscribe to events: Selecciona Workflow job.
 
 6. Haz clic en Create GitHub App.
 
 7. Guarda el App ID que aparece en pantalla.
 
-8. En la sección Private keys, haz clic en Generate a private key y guarda el archivo .pem en tu máquina.
+8. En la sección Private keys, haz clic en "Generate a private key" y guarda el archivo .pem en tu máquina.
 
 9. Ve a Install App en el menú izquierdo e instálala en tu organización o repositorio objetivo (ej. daveopssh/demo-tf-repo).
 
