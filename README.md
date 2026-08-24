@@ -31,7 +31,8 @@ Acceso Privado a la VPC: Al residir en tu red privada de AWS, el runner puede in
 
 Automatización con IaC: Todo el stack (API Gateway, Lambdas, SSM Parameters, Auto Scaling Groups y Roles IAM) se despliega mediante Terraform / OpenTofu.
 
-### Nota sobre SSM Parameter Store: Los Parámetros SSM cumplen un rol similar a los Secrets/Variables de GitHub Actions: separar la configuración del código. La diferencia clave es que los valores de SSM residen dentro de AWS y son leídos en tiempo de ejecución por las funciones Lambda y los runners EC2.
+## Nota sobre SSM Parameter Store: 
+Los Parámetros SSM cumplen un rol similar a los Secrets/Variables de GitHub Actions: separar la configuración del código. La diferencia clave es que los valores de SSM residen dentro de AWS y son leídos en tiempo de ejecución por las funciones Lambda y los runners EC2.
 
 ## Requisitos
     • Cuenta de AWS con permisos para EC2, Lambda, API Gateway, SSM, S3 e IAM
@@ -80,7 +81,7 @@ Contiene la arquitectura base y la llamada al módulo de runners:
 Parametriza el entorno con enfoque Free Tier:
 
 3. 📄 outputs.tf
-Muestra el endpoint de API Gateway (webhook_endpoint), el bucket generado y los nombres de los parámetros SSM requeridos para conectar GitHub con AWS.
+Muestra el endpoint de API Gateway, el bucket generado y los nombres de los parámetros SSM requeridos para conectar GitHub con AWS.
 
 4. 📄 provider.tf
 Fija la región de AWS en us-east-1 y define las versiones de los proveedores aws, tls y random.
@@ -125,20 +126,28 @@ Asigna Permisos de Repositorio (Repository permissions):
 9. Ve a Install App en el menú izquierdo e instálala en tu organización o repositorio objetivo (ej. daveopssh/demo-tf-repo).
 
 ### Paso 2 — Bootstrap de Infraestructura Inicial
-Inicializa Terraform e instala las dependencias:
+1. Inicializa Terraform e instala las dependencias:
 
 ```
 Bash
 terraform init
 Aplica solo los recursos base (Bucket S3 y Parámetros SSM vacíos) para preparar el terreno sin fallos de dependencias:
 ```
+2. Generar el plan de ejecución y verificar los recursos a crear
+
 ```
-Bash
-terraform apply \
-  -target=module.gha_runner_bucket \
-  -target=aws_ssm_parameter.github_app_id \
-  -target=aws_ssm_parameter.github_app_key_base64 \
-  -target=aws_ssm_parameter.github_app_webhook_secret
+-Bash
+terraform plan -target=aws_s3_bucket.action_runner_bucket -target=aws_ssm_parameter.github_app_id -target=aws_ssm_parameter.github_app_installation_id 
+```
+3. A continuación, desplegamos la base excluyendo el módulo de runners para evitar que falle por falta de archivos .zip en S3:
+
+```
+-Bash
+terraform apply 
+-target=module.gha_runner_bucket 
+-target=aws_ssm_parameter.github_app_id 
+-target=aws_ssm_parameter.github_app_key_base64 
+-target=aws_ssm_parameter.github_app_webhook_secret
 ```
 
 ### Paso 3 — Publicar las Lambdas en S3
