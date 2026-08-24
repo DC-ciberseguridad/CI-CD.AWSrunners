@@ -1,4 +1,22 @@
-.terraform
-.terraform.lock.hcl
+# Archivos de estado local (CONTIENEN SECRETOS - NUNCA SUBIR)
+*.tfstate
+*.tfstate.*
 terraform.tfstate
 terraform.tfstate.backup
+
+# Carpetas de ejecuciones locales y caché de proveedores
+.terraform/
+.terraform.tfstate*
+
+# Archivos de variables con datos sensibles
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Archivos temporales o de claves privadas del proyecto
+*.pem
+*.key
+download-artifacts.sh
