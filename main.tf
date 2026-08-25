@@ -20,6 +20,7 @@ locals {
   lambda_s3_key    = "github-runner/${var.github_runner_module_version}"
 }
 
+# 1. Creación inicial de recursos SSM
 resource "aws_ssm_parameter" "github_app_id" {
   name  = local.github_app_id_param_name
   type  = "String"
@@ -44,6 +45,18 @@ resource "aws_ssm_parameter" "github_app_webhook_secret" {
   name  = local.github_app_webhook_secret_param_name
   type  = "SecureString"
   value = random_password.github_webhook_secret.result
+}
+
+# 2. LECTURA DE VALORES REALES (Añadido para corregir el error)
+# Esto obliga a Terraform a consultar a AWS y traer el valor real actualizado
+data "aws_ssm_parameter" "github_app_id" {
+  name       = local.github_app_id_param_name
+  depends_on = [aws_ssm_parameter.github_app_id]
+}
+
+data "aws_ssm_parameter" "github_app_key_base64" {
+  name       = local.github_app_key_base64_param_name
+  depends_on = [aws_ssm_parameter.github_app_key_base64]
 }
 
 # --- RECURSOS BASE ---
@@ -82,9 +95,10 @@ module "github_runner" {
 
   runner_architecture = "x64"
 
+  # Cambiamos las referencias de 'aws_ssm_parameter' a 'data.aws_ssm_parameter'
   github_app = {
-    id             = aws_ssm_parameter.github_app_id.value
-    key_base64     = aws_ssm_parameter.github_app_key_base64.value
+    id             = data.aws_ssm_parameter.github_app_id.value
+    key_base64     = data.aws_ssm_parameter.github_app_key_base64.value
     webhook_secret = aws_ssm_parameter.github_app_webhook_secret.value
   }
 

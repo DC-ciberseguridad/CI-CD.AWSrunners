@@ -31,9 +31,6 @@ Acceso Privado a la VPC: Al residir en tu red privada de AWS, el runner puede in
 
 Automatización con IaC: Todo el stack (API Gateway, Lambdas, SSM Parameters, Auto Scaling Groups y Roles IAM) se despliega mediante Terraform / OpenTofu.
 
-## Nota sobre SSM Parameter Store: 
-Los Parámetros SSM cumplen un rol similar a los Secrets/Variables de GitHub Actions: separar la configuración del código. La diferencia clave es que los valores de SSM residen dentro de AWS y son leídos en tiempo de ejecución por las funciones Lambda y los runners EC2.
-
 ## Requisitos
     • Cuenta de AWS con permisos para EC2, Lambda, API Gateway, SSM, S3 e IAM
     • AWS CLI configurada (en el demo se usa el profile personal)
@@ -155,16 +152,52 @@ Concede permisos de ejecución al script Bash y súbelas al bucket:
 
 ```
 Bash
-chmod +x scripts/publish-github-runner-lambdas.sh
-./scripts/publish-github-runner-lambdas.sh
+
+rm -f publish-github-runner-lambdas.sh download-artifacts.sh
+
+MODULE_VERSION="6.1.1"
+BUCKET_NAME="URL BUCKET"
+AWS_REGION="us-east-1"
+
+curl -sO "https://raw.githubusercontent.com/philips-labs/terraform-aws-github-runner/v6.1.1/images/ubuntu-focal/binaries.sh" || true
+curl -sO "https://raw.githubusercontent.com/philips-labs/terraform-aws-github-runner/v6.1.1/download-artifacts.sh" || true
+
+
+mkdir -p lambdas
+cd lambdas
+
+curl -LO "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/v6.1.1/webhook.zip"
+curl -LO "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/v6.1.1/runners.zip"
+curl -LO "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/v6.1.1/runner-binaries-syncer.zip"
+
+aws s3 cp webhook.zip s3://${BUCKET_NAME}/
+aws s3 cp runners.zip s3://${BUCKET_NAME}/
+aws s3 cp runner-binaries-syncer.zip s3://${BUCKET_NAME}/
+
+cd ..
+rm -rf lambdas
 ```
 ### Paso 4 — Cargar Credenciales en SSM
 Registra el App ID y la clave privada .pem en SSM usando el script helper:
 
 ```
 Bash
-chmod +x scripts/put-ssm-parameter.sh
-./scripts/put-ssm-parameter.sh <NÚMERO_DE_APP_ID> /ruta/a/tu-clave-privada.pem
+
+-Bash
+#1. Subir tu App ID real a SSM 
+aws ssm put-parameter --name "/github-action-runners/demo/app/github_app_id" --value "TU_GITHUB_APP_ID_AQUI" --type "String" --overwrite --region us-east-1
+
+#2. Convertir el contenido del archivo .pem a Base64 en una sola línea
+KEY_BASE64=$(base64 -w 0 tu-clave-privada.pem)
+
+
+#3. Subir el valor a AWS SSM Parameter Store como SecureString
+aws ssm put-parameter 
+--name "/github-action-runners/demo/app/github_app_key_base64" 
+--value "$KEY_BASE64" 
+--type "SecureString" 
+--overwrite 
+--region us-east-1
 ```
 
 ### Paso 5 — Desplegar el Módulo Completo
