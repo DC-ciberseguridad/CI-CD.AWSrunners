@@ -103,14 +103,14 @@ module "github_runner" {
   }
 
   lambda_s3_bucket      = local.lambda_s3_bucket
-  webhook_lambda_s3_key = "${local.lambda_s3_key}/webhook.zip"
-  runners_lambda_s3_key = "${local.lambda_s3_key}/runners.zip"
-  syncer_lambda_s3_key  = "${local.lambda_s3_key}/runner-binaries-syncer.zip"
+  webhook_lambda_s3_key = "webhook.zip"
+  runners_lambda_s3_key = "runners.zip"
+  syncer_lambda_s3_key  = "runner-binaries-syncer.zip"
 
   instance_types                = var.runner_instance_types
   instance_target_capacity_type = var.instance_target_capacity_type
 
-  repository_white_list = ["daveopssh/demo-tf-repo"] # Cambia por tu repositorio
+  repository_white_list = ["DC-ciberseguridad/CI-CD.AWSrunners"] # Cambia por tu repositorio
 
   runner_extra_labels = ["self-hosted", "demo"]
   runner_group_name   = "demo"
