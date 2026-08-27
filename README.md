@@ -61,13 +61,24 @@ Aprovisionamiento Modular con Terraform/OpenTofu: Estrategia de bootstrap para c
 ## 📁 Estructura del Proyecto
 ```
 CI-CD.AWSrunners/
-├── main.tf                 # Bucket S3, SSM Parameters y módulo github_runner
-├── variables.tf            # Variables para la Capa Gratuita (t3.micro, on-demand, us-east-1)
-├── outputs.tf              # Webhook URL y nombres de parámetros SSM
-├── provider.tf             # Configuración del proveedor de AWS en us-east-1
-└── scripts/
-    ├── publish-github-runner-lambdas.sh # Sube artefactos .zip al bucket S3
-    └── put-ssm-parameter.sh             # Carga el App ID y la Clave Privada (.pem) a SSM
+├── .github/
+│   └── workflows/
+│       └── demo.yml                  # Workflow de prueba para el runner efímero
+├── artifacts/
+│   ├── runner-binaries-syncer.zip    # Binario de la Lambda syncer
+│   ├── runners.zip                   # Binario de la Lambda runner manager
+│   └── webhook.zip                   # Binario de la Lambda webhook handler
+├── scripts/
+│   ├── publish-github-runner-lambdas.sh # Sincroniza los artefactos a S3
+│   └── put-ssm-parameter.sh          # Inyecta App ID y Private Key Base64 en SSM
+├── .gitignore                        # Evita subir llaves .pem, tfstate o temporales
+├── versions.tf                       # Declaración de versiones de Terraform y providers
+├── provider.tf                       # Configuración del proveedor de AWS y región
+├── variables.tf                      # Declaración de variables de entrada
+├── main.tf                           # Recursos principales y llamadas a módulos
+├── outputs.tf                        # Salidas del despliegue (Webhook URL, etc.)
+├── terraform.tfvars.example          # Plantilla de variables para personalizar en local
+└── README.md                         # Documentación paso a paso de uso y despliegue
 ```
 ## 📄 Desglose Detallado Archivo por Archivo
 
