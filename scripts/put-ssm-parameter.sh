@@ -1,32 +1,50 @@
 #!/usr/bin/env bash
 set -e
 
-VERSION="v7.10.1"
-MODULE_VERSION="7.10.1"
+# --- CONFIGURACIÓN DE NOMBRES DE PARÁMETROS ---
+ENV_PREFIX="demo" # Debe coincidir con var.env_prefix de tu Terraform
 AWS_REGION="us-east-1"
 
-# Obtiene automáticamente el nombre del bucket generado por Terraform
-BUCKET_NAME=${1:-$(terraform output -raw lambda_artifacts_bucket_name 2>/dev/null)}
+PARAM_APP_ID="/github-action-runners/${ENV_PREFIX}/app/github_app_id"
+PARAM_APP_KEY="/github-action-runners/${ENV_PREFIX}/app/github_app_key_base64"
 
-if [ -z "$BUCKET_NAME" ]; then
-  echo "Error: No se pudo obtener el nombre del bucket. Asegúrate de haber ejecutado el Paso 2 primero."
-  echo "Uso: ./scripts/publish-github-runner-lambdas.sh <NOMBRE_DEL_BUCKET>"
-  exit 1
+# --- SOLICITUD DE DATOS AL USUARIO ---
+echo "=================================================="
+echo " Configuración de Credenciales GitHub App en SSM "
+echo "=================================================="
+
+read -p "Ingresa el GitHub App ID: " GITHUB_APP_ID
+read -p "Ingresa la ruta a tu archivo .pem (ej: ./github-app.private-key.pem): " PEM_FILE_PATH
+
+if [ ! -f "$PEM_FILE_PATH" ]; then
+    echo "Error: El archivo PEM '$PEM_FILE_PATH' no existe."
+    exit 1
 fi
 
-echo "==> Usando el bucket S3: $BUCKET_NAME en región $AWS_REGION"
+echo "==> Codificando llave privada a Base64..."
+# En Linux se usa 'base64 -w 0', en macOS 'base64'
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    APP_KEY_BASE64=$(base64 -i "$PEM_FILE_PATH")
+else
+    APP_KEY_BASE64=$(base64 -w 0 "$PEM_FILE_PATH")
+fi
 
-TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"' EXIT
+echo "==> Actualizando parámetro $PARAM_APP_ID en SSM..."
+aws ssm put-parameter \
+    --name "$PARAM_APP_ID" \
+    --value "$GITHUB_APP_ID" \
+    --type "String" \
+    --overwrite \
+    --region "$AWS_REGION"
 
-echo "==> Descargando artefactos Lambda versión $VERSION..."
-curl -sL "https://github.com/github-aws-runners/terraform-aws-github-runner/releases/download/${VERSION}/webhook.zip" -o "$TMP_DIR/webhook.zip"
-curl -sL "https://github.com/github-aws-runners/terraform-aws-github-runner/releases/download/${VERSION}/runners.zip" -o "$TMP_DIR/runners.zip"
-curl -sL "https://github.com/github-aws-runners/terraform-aws-github-runner/releases/download/${VERSION}/runner-binaries-syncer.zip" -o "$TMP_DIR/runner-binaries-syncer.zip"
+echo "==> Actualizando parámetro $PARAM_APP_KEY en SSM..."
+aws ssm put-parameter \
+    --name "$PARAM_APP_KEY" \
+    --value "$APP_KEY_BASE64" \
+    --type "SecureString" \
+    --overwrite \
+    --region "$AWS_REGION"
 
-echo "==> Subiendo artefactos a S3 (s3://$BUCKET_NAME/github-runner/$MODULE_VERSION/)..."
-aws s3 cp "$TMP_DIR/webhook.zip" "s3://$BUCKET_NAME/github-runner/$MODULE_VERSION/webhook.zip" --region "$AWS_REGION"
-aws s3 cp "$TMP_DIR/runners.zip" "s3://$BUCKET_NAME/github-runner/$MODULE_VERSION/runners.zip" --region "$AWS_REGION"
-aws s3 cp "$TMP_DIR/runner-binaries-syncer.zip" "s3://$BUCKET_NAME/github-runner/$MODULE_VERSION/runner-binaries-syncer.zip" --region "$AWS_REGION"
-
-echo "==> ¡Artefactos publicados exitosamente en S3!"
+echo "=================================================="
+echo "¡Parámetros SSM actualizados correctamente en AWS!"
+echo "=================================================="

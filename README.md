@@ -153,27 +153,46 @@ Concede permisos de ejecución al script Bash y súbelas al bucket:
 ```
 Bash
 
-rm -f publish-github-runner-lambdas.sh download-artifacts.sh
+# 1. Definir variables principales
 
-MODULE_VERSION="6.1.1"
-BUCKET_NAME="URL BUCKET"
+-Bash
+MODULE_VERSION="7.10.1"
+BUCKET_NAME="demo-gha-runner-binaries-2ac7036add63616d3387b6d823"
 AWS_REGION="us-east-1"
+REPO_OWNER="DC-ciberseguridad"
+REPO_NAME="CI-CD.AWSrunners"
+BRANCH="main" # O la rama donde tengas los artefactos (ej. master, dev)
 
-curl -sO "https://raw.githubusercontent.com/philips-labs/terraform-aws-github-runner/v6.1.1/images/ubuntu-focal/binaries.sh" || true
-curl -sO "https://raw.githubusercontent.com/philips-labs/terraform-aws-github-runner/v6.1.1/download-artifacts.sh" || true
+# 2. Crear carpeta temporal local
 
-
+-Bash
+rm -rf lambdas
 mkdir -p lambdas
 cd lambdas
 
-curl -LO "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/v6.1.1/webhook.zip"
-curl -LO "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/v6.1.1/runners.zip"
-curl -LO "https://github.com/philips-labs/terraform-aws-github-runner/releases/download/v6.1.1/runner-binaries-syncer.zip"
+# 3. Descargar los 3 archivos .zip desde el directorio /artifacts de tu repositorio
 
-aws s3 cp webhook.zip s3://${BUCKET_NAME}/
-aws s3 cp runners.zip s3://${BUCKET_NAME}/
-aws s3 cp runner-binaries-syncer.zip s3://${BUCKET_NAME}/
+-Bash
+curl -LO "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/artifacts/webhook.zip"
 
+curl -LO "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/artifacts/runners.zip"
+
+curl -LO "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/artifacts/runner-binaries-syncer.zip"
+
+# 4. Subir los 3 archivos .zip a la ruta que espera Terraform en S3
+
+-Bash
+
+aws s3 cp webhook.zip "s3://${BUCKET_NAME}/github-runner/${MODULE_VERSION}/webhook.zip" --region ${AWS_REGION}
+
+aws s3 cp runners.zip "s3://${BUCKET_NAME}/github-runner/${MODULE_VERSION}/runners.zip" --region $
+{AWS_REGION}
+
+aws s3 cp runner-binaries-syncer.zip "s3://${BUCKET_NAME}/github-runner/${MODULE_VERSION}/runner-binaries-syncer.zip" --region ${AWS_REGION}
+
+# 5. Regresar al directorio principal y limpiar
+
+-Bash
 cd ..
 rm -rf lambdas
 ```
@@ -192,12 +211,7 @@ KEY_BASE64=$(base64 -w 0 tu-clave-privada.pem)
 
 
 #3. Subir el valor a AWS SSM Parameter Store como SecureString
-aws ssm put-parameter 
---name "/github-action-runners/demo/app/github_app_key_base64" 
---value "$KEY_BASE64" 
---type "SecureString" 
---overwrite 
---region us-east-1
+aws ssm put-parameter --name "/github-action-runners/demo/app/github_app_key_base64" --value "$KEY_BASE64" --type "SecureString" --overwrite --region us-east-1
 ```
 
 ### Paso 5 — Desplegar el Módulo Completo
@@ -215,30 +229,29 @@ Vuelve a tu GitHub App en GitHub.
 
 Ve a General > Webhook.
 
-Activa la opción Active.
-
 En Webhook URL, pega la URL entregada por el output de Terraform (webhook_endpoint).
+
+```
+Bash
+
+aws apigatewayv2 get-apis --region us-east-1 --query "Items[?contains(Name, 'github-actions')].ApiEndpoint" --output text
+```
 
 En Webhook Secret, pega el valor almacenado en SSM para la firma. Para consultarlo desde la terminal:
 
 ```
 Bash
-aws ssm get-parameter \
-  --name "/github-action-runners/demo/app/github_app_github_app_webhook_secret" \
-  --with-decryption \
-  --query 'Parameter.Value' \
-  --output text \
-  --region us-east-1
-```
 
-Guarda los cambios.
+aws ssm get-parameter --name "/github-action-runners/demo/app/github_app_webhook_secret" --with-decryption --query 'Parameter.Value' --output text --region us-east-1
+```
+Activa la opción Active y Guarda los cambios.
 
 ### Paso 7 — Probar el Pipeline
 En tu repositorio de GitHub autorizado, crea un archivo de workflow .github/workflows/demo.yml:
 
 ```
-YAML
 name: Demo AWS Ephemeral Runner
+
 on:
   workflow_dispatch:
 
@@ -249,10 +262,34 @@ jobs:
       - name: Checkout Código
         uses: actions/checkout@v4
 
-      - name: Probar Runner
+      - name: Información del Runner y Sistema Operativo
         run: |
-          echo "¡Hola desde la instancia EC2 efímera t3.micro en us-east-1!"
+          echo "=========================================="
+          echo "¡Hola desde la instancia EC2 efímera en AWS!"
+          echo "=========================================="
+          echo "Host: $(hostname)"
+          echo "Usuario actual: $(whoami)"
+          echo "Sistema Operativo:"
           uname -a
+          cat /etc/os-release | grep PRETTY_NAME
+
+      - name: Verificar Recursos de la Instancia EC2
+        run: |
+          echo "--- CPU & Memoria ---"
+          lscpu | grep "Model name\|CPU(s):"
+          free -h
+          echo "--- Espacio en Disco ---"
+          df -h /
+
+      - name: Probar Conectividad y Salida a Internet
+        run: |
+          echo "--- Dirección IP Pública/Egress ---"
+          curl -s https://ifconfig.me
+          echo ""
+
+      - name: Confirmación Final
+        run: |
+          echo "Job completado exitosamente en el runner efímero."
 ```
 
 Dispara el pipeline manualmente desde la pestaña Actions de GitHub y observa en tu consola de AWS cómo se enciende una instancia EC2 t3.micro, procesa el trabajo y se autodestruye al terminar.

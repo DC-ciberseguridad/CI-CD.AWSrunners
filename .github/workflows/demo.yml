@@ -1,0 +1,40 @@
+name: Demo AWS Ephemeral Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-runner:
+    runs-on: [self-hosted, demo]
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Información del Runner y Sistema Operativo
+        run: |
+          echo "=========================================="
+          echo "¡Hola desde la instancia EC2 efímera en AWS!"
+          echo "=========================================="
+          echo "Host: $(hostname)"
+          echo "Usuario actual: $(whoami)"
+          echo "Sistema Operativo:"
+          uname -a
+          cat /etc/os-release | grep PRETTY_NAME
+
+      - name: Verificar Recursos de la Instancia EC2
+        run: |
+          echo "--- CPU & Memoria ---"
+          lscpu | grep "Model name\|CPU(s):"
+          free -h
+          echo "--- Espacio en Disco ---"
+          df -h /
+
+      - name: Probar Conectividad y Salida a Internet
+        run: |
+          echo "--- Dirección IP Pública/Egress ---"
+          curl -s https://ifconfig.me
+          echo ""
+
+      - name: Confirmación Final
+        run: |
+          echo "Job completado exitosamente en el runner efímero."

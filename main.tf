@@ -47,14 +47,14 @@ resource "aws_ssm_parameter" "github_app_webhook_secret" {
   value = random_password.github_webhook_secret.result
 }
 
-# 2. LECTURA DE VALORES REALES (Añadido para corregir el error)
-# Esto obliga a Terraform a consultar a AWS y traer el valor real actualizado
-data "aws_ssm_parameter" "github_app_id" {
+# 2. LECTURA DE VALORES REALES
+# Cambiamos el nombre local del data (github_app_id_read) para evitar conflicto con el resource
+data "aws_ssm_parameter" "github_app_id_read" {
   name       = local.github_app_id_param_name
   depends_on = [aws_ssm_parameter.github_app_id]
 }
 
-data "aws_ssm_parameter" "github_app_key_base64" {
+data "aws_ssm_parameter" "github_app_key_base64_read" {
   name       = local.github_app_key_base64_param_name
   depends_on = [aws_ssm_parameter.github_app_key_base64]
 }
@@ -95,12 +95,15 @@ module "github_runner" {
 
   runner_architecture = "x64"
 
-  # Cambiamos las referencias de 'aws_ssm_parameter' a 'data.aws_ssm_parameter'
+  # Leemos desde los data sources renombrados (_read)
   github_app = {
-    id             = data.aws_ssm_parameter.github_app_id.value
-    key_base64     = data.aws_ssm_parameter.github_app_key_base64.value
+    id             = data.aws_ssm_parameter.github_app_id_read.value
+    key_base64     = data.aws_ssm_parameter.github_app_key_base64_read.value
     webhook_secret = aws_ssm_parameter.github_app_webhook_secret.value
   }
+
+  # Solo esta variable es válida para deshabilitar la concurrencia en la Lambda principal
+  scale_up_reserved_concurrent_executions = -1
 
   lambda_s3_bucket      = local.lambda_s3_bucket
   webhook_lambda_s3_key = "webhook.zip"
@@ -110,7 +113,7 @@ module "github_runner" {
   instance_types                = var.runner_instance_types
   instance_target_capacity_type = var.instance_target_capacity_type
 
-  repository_white_list = ["DC-ciberseguridad/CI-CD.AWSrunners"] # Cambia por tu repositorio
+  repository_white_list = ["DC-ciberseguridad/CI-CD.AWSrunners"]
 
   runner_extra_labels = ["self-hosted", "demo"]
   runner_group_name   = "demo"
