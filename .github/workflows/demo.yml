@@ -1,11 +1,14 @@
-name: demo-self-hosted
+name: Demo AWS Ephemeral Runner
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: [self-hosted, youtube, demote]
+  test-runner:
+    runs-on: [self-hosted, demo, linux, x64]
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "Corriendo en runner self-hosted de AWS"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test execution
+        run: echo "¡Instancia EC2 desplegada correctamente!"

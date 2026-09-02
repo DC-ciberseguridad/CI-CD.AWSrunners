@@ -148,7 +148,7 @@ Aplica solo los recursos base (Bucket S3 y Parámetros SSM vacíos) para prepara
 -Bash
 terraform plan -target=aws_s3_bucket.action_runner_bucket -target=aws_ssm_parameter.github_app_id -target=aws_ssm_parameter.github_app_installation_id 
 ```
-3. A continuación, desplegamos la base excluyendo el módulo de runners para evitar que falle por falta de archivos .zip en S3:
+3. A continuación, desplegamos el Bucket excluyendo el módulo de runners para evitar que falle por falta de archivos .zip en S3:
 
 ```
 -Bash
@@ -201,6 +201,8 @@ download_zip() {
 
 #4. Descargar los 3 archivos .zip desde el directorio /artifacts
 
+-Bash
+
 download_zip "webhook.zip" 
 download_zip "runners.zip" 
 download_zip "runner-binaries-syncer.zip"
@@ -222,9 +224,8 @@ cd .. && rm -rf lambdas_tmp
 Registra el App ID y la clave privada .pem en SSM usando el script helper:
 
 ```
-Bash
-
 -Bash
+
 #1. Subir tu App ID real a SSM 
 aws ssm put-parameter --name "/github-action-runners/github-actions/app/github_app_id" --value "TU_GITHUB_APP_ID_AQUI" --type "String" --overwrite --region us-east-1
 
