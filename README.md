@@ -274,17 +274,20 @@ Activa la opción Active y Guarda los cambios.
 En tu repositorio de GitHub autorizado, crea un archivo de workflow .github/workflows/demo.yml:
 
 ```
-name: demo-self-hosted
+name: Demo AWS Ephemeral Runner
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: [self-hosted, youtube, demote]
+  test-runner:
+    runs-on: [self-hosted, demo, linux, x64]
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "Corriendo en runner self-hosted de AWS"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test execution
+        run: echo "¡Instancia EC2 desplegada correctamente!"
 ```
 
 Dispara el pipeline manualmente desde la pestaña Actions de GitHub y observa en tu consola de AWS cómo se enciende una instancia EC2 t3.micro, procesa el trabajo y se autodestruye al terminar.
