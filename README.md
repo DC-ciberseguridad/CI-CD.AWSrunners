@@ -226,14 +226,21 @@ Registra el App ID y la clave privada .pem en SSM usando el script helper:
 ```
 -Bash
 
-#1. Subir tu App ID real a SSM 
+#1. Subir tu App ID real a SSM:
+ 
 aws ssm put-parameter --name "/github-action-runners/github-actions/app/github_app_id" --value "TU_GITHUB_APP_ID_AQUI" --type "String" --overwrite --region us-east-1
 
-#2. Convertir el contenido del archivo .pem a Base64 en una sola línea
-openssl base64 -A -in tu-clave-privada.pem -out key_base64.txt
+#2. Convertir el contenido del archivo .pem a Base64:
 
-#3. Subir el valor a AWS SSM Parameter Store como SecureString
-aws ssm put-parameter --name "/github-action-runners/github-actions/app/github_app_key_base64" --value "key_base64.txt" --type "SecureString" --overwrite --region us-east-1
+KEY_BASE64=$(cat /ruta/a/tu/archivo-de-github.private-key.pem | base64 -w 0)
+
+#3. Subir el valor a AWS SSM Parameter Store como SecureString:
+
+aws ssm put-parameter --name "/github-action-runners/github-actions/app/github_app_key_base64" --value "$KEY_BASE64" --type "SecureString" --overwrite --region us-east-1
+
+#4. Verificar que el parámetro se guardó correctamente:
+
+aws ssm get-parameter --name "/github-action-runners/github-actions/app/github_app_key_base64" --with-decryption --region us-east-1 --query "Parameter.Value" --output text | base64 -d | head -n 2
 ```
 
 ### Paso 5 — Desplegar el Módulo Completo
